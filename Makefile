@@ -8,9 +8,9 @@ else
 	OPT=-O2
 endif
 
-all: vcfref
+all: bin/vcfref
 
-vcfref: vcf_ref.c bin Makefile
+bin/vcfref: vcf_ref.c bin Makefile
 	$(CC) $(CFLAGS) $(OPT) -o bin/vcfref vcf_ref.c libs/string_buffer/string_buffer.c $(LINKING) -lz
 
 bin:
