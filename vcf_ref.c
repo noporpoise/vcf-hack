@@ -62,58 +62,58 @@ int main(int argc, char **argv)
     r = reads + i;
     fprintf(stderr, "Loaded: '%s'\n", r->name.b);
     k = kh_put(ghash, genome, r->name.b, &hret);
-    if(hret == 0) fprintf(stderr, "Warn: dup read name (taking first): %s\n", r->name.b);
+    if(hret == 0) warn("Duplicate read name (taking first): %s", r->name.b);
     else kh_value(genome, k) = r;
   }
 
   // Now read VCF
   StrBuf line;
   strbuf_alloc(&line, 1024);
-  char *sep0, *sep1, *sep2, *sep3, *sep4, *chr;
+  char *fields[9];
+  char *chr;
   int pos, reflen, altlen;
 
   while(strbuf_reset_gzreadline(&line, gzin) > 0)
   {
     if(line.buff[0] == '#') fputs(line.buff, stdout);
-    else if((sep0 = strchr(line.buff, '\t')) != NULL &&
-            (sep1 = strchr(sep0+1, '\t')) != NULL &&
-            (sep2 = strchr(sep1+1, '\t')) != NULL &&
-            (sep3 = strchr(sep2+1, '\t')) != NULL &&
-            (sep4 = strchr(sep3+1, '\t')) != NULL)
+    else
     {
-      *sep0 = *sep1 = '\0';
+      strbuf_chomp(&line);
+      vcf_columns(line.buff, fields);
+      fields[1][-1] = fields[2][-1] = '\0';
       chr = line.buff;
-      pos = atoi(sep0+1)-1;
+      pos = atoi(fields[1])-1;
       k = kh_get(ghash, genome, chr);
       r = kh_value(genome, k);
-      *sep0 = *sep1 = '\t';
-      reflen = sep3 - sep2 - 1;
-      altlen = sep4 - sep3 - 1;
-      if(k == kh_end(genome)) fprintf(stderr, "Cannot find chrom: %s", chr);
-      else if(pos < 0) fprintf(stderr, "Bad line: %s\n", line.buff);
-      else if((reflen == 1 && altlen == 1) || sep2[1] == sep3[1])
+      fields[1][-1] = fields[2][-1] = '\t';
+      reflen = fields[4] - fields[3] - 1;
+      altlen = fields[5] - fields[4] - 1;
+      if(k == kh_end(genome)) warn("Cannot find chrom: %s", chr);
+      else if(pos < 0) warn("Bad line: %s\n", line.buff);
+      else if((reflen == 1 && altlen == 1) || fields[3][0] == fields[4][0])
       {
         if((unsigned)pos + reflen <= r->seq.end &&
-           strncasecmp(r->seq.b+pos,sep2+1,reflen) == 0)
+           strncasecmp(r->seq.b+pos,fields[3],reflen) == 0)
         {
           fputs(line.buff, stdout);
+          fputc('\n', stdout);
         }
         else if(swap_alleles && (unsigned)pos + altlen <= r->seq.end &&
-                strncasecmp(r->seq.b+pos,sep3+1,altlen) == 0)
+                strncasecmp(r->seq.b+pos,fields[4],altlen) == 0)
         {
           // swap alleles
-          char tmp[altlen], *ref = sep2+1, *alt = sep3+1;
+          char tmp[altlen], *ref = fields[3], *alt = fields[4];
           memcpy(tmp, alt, altlen);
           memmove(ref+altlen+1, ref, reflen);
           memcpy(ref, tmp, altlen);
           ref[altlen] = '\t';
           fputs(line.buff, stdout);
+          fputc('\n', stdout);
         }
         // else printf("FAIL0\n");
       }
       // else printf("FAIL1\n");
     }
-    else die("Bad VCF line\n%s\n", line.buff);
   }
 
   strbuf_dealloc(&line);

@@ -52,6 +52,17 @@ char parse_entire_int(char *str, int *result)
   return 1;
 }
 
+void vcf_columns(char *vcfline, char *fields[9])
+{
+  int i;
+  fields[0] = vcfline;
+  for(i = 1; i < 9; i++) {
+    fields[i] = strchr(fields[i-1]+1, '\t');
+    if(fields[i] == NULL) die("Invalid VCF line: %s", vcfline);
+    fields[i]++;
+  }
+}
+
 void load_reads(const char *path, read_t **reads, size_t *capcty, size_t *nchroms)
 {
   seq_file_t *sf;

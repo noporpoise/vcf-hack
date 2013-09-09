@@ -20,6 +20,8 @@ void print_usage(const char *usage, const char *errfmt,  ...);
 
 char parse_entire_int(char *str, int *result);
 
+void vcf_columns(char *vcfline, char *fields[9]);
+
 void load_reads(const char *path, read_t **reads, size_t *capcty, size_t *nchroms);
 
 #endif /* GLOBAL_H_ */

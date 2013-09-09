@@ -67,26 +67,20 @@ static void reduce_alts(char *alts, StrBuf *out)
 
 // Merge line0, line1 into out. Returns reflen [ e.g. strlen(REF) ]
 // VCF: CHROM-POS-ID-REF-ALT-QUAL-FILTER-INFO-FORMAT[-SAMPLE0...] '-' is '\t'
-static int merge_vcf_lines(StrBuf *line0, StrBuf *line1,
+static int merge_vcf_lines(StrBuf *line0, char *fields1[9],
                            StrBuf *tmpbuf, StrBuf *out, read_t *r)
 {
-  strbuf_reset(out);
-
-  char *fields0[8], *fields1[8];
+  char *fields0[9];
   int i, pos0, pos1, reflen, reflen0, reflen1, altlen0, altlen1;
-  fields0[0] = line0->buff;
-  fields1[0] = line1->buff;
-  for(i = 1; i < 8 && (fields0[i] = strchr(fields0[i-1]+1, '\t')) != NULL; i++) fields0[i]++;
-  if(i != 8) die("Invalid line: %s", line0->buff);
-  for(i = 1; i < 8 && (fields1[i] = strchr(fields1[i-1]+1, '\t')) != NULL; i++) fields1[i]++;
-  if(i != 8) die("Invalid line: %s", line1->buff);
+
+  strbuf_reset(out);
+  vcf_columns(line0->buff, fields0);
 
   // Copy "CHROM-POS-ID-"
-  out->len = 0; out->buff[0] = '\0';
   strbuf_append_strn(out, line0->buff, fields0[3] - fields0[0]);
 
   // Convert tabs to NUL
-  for(i = 1; i < 8; i++) fields0[i][-1] = fields1[i][-1] = '\0';
+  for(i = 1; i < 9; i++) fields0[i][-1] = fields1[i][-1] = '\0';
 
   if(!parse_entire_int(fields0[1],&pos0))
     die("Invalid entry: %s:%s", fields0[0], fields0[1]);
@@ -117,7 +111,7 @@ static int merge_vcf_lines(StrBuf *line0, StrBuf *line1,
   strbuf_append_char(out, '\t');
 
   // Revert
-  for(i = 1; i < 8; i++) fields0[i][-1] = fields1[i][-1] = '\t';  
+  for(i = 1; i < 9; i++) fields0[i][-1] = fields1[i][-1] = '\t';
 
   // Append remaining
   strbuf_append_str(out, fields0[5]);
@@ -173,14 +167,15 @@ int main(int argc, char **argv)
     r = reads + i;
     fprintf(stderr, "Loaded: '%s'\n", r->name.b);
     hpos = kh_put(ghash, genome, r->name.b, &hret);
-    if(hret == 0) fprintf(stderr, "Warn: dup read name (taking first): %s\n", r->name.b);
+    if(hret == 0) warn("Duplicate read name (taking first): %s", r->name.b);
     else kh_value(genome, hpos) = r;
   }
 
   // Now read VCF
   StrBuf sbuf0, sbuf1, sbuftmp0, sbuftmp1; // line and next line
   StrBuf *line, *nline, *tmpbuf, *tmpout, *swap_buf;
-  char *sep0, *sep1, *sep2, *sep3, *nchr;
+  char *fields[9];
+  char *nchr, *trm;
   int pos, npos, reflen, nreflen, same_chr;
   size_t chrlen, nchrlen, print;
 
@@ -197,48 +192,51 @@ int main(int argc, char **argv)
 
   while(strbuf_reset_gzreadline(line, gzin) > 0) {
     strbuf_chomp(line);
-    if(line->buff[0] == '#') prntbf(line);
+    if(strncmp(line->buff, "##", 2) == 0) prntbf(line);
     else if(line->len > 0) break;
   }
 
+  if(strncmp(line->buff,"#CHROM",6) != 0)
+    die("Expected header: '%s'", line->buff);
+
+  // Drop sample information from #CHROM POS ... header line
+  vcf_columns(line->buff, fields);
+  if((trm = strchr(fields[8], '\t')) != NULL) strbuf_shrink(line, trm-line->buff);
+  prntbf(line);
+
+  strbuf_reset_gzreadline(line, gzin);
   if(line->len == 0) die("Empty VCF");
 
   // Parse first VCF entry
-  if((sep0 = strchr(line->buff, '\t')) == NULL ||
-     (sep1 = strchr(sep0+1, '\t')) == NULL ||
-     (sep2 = strchr(sep1+1, '\t')) == NULL ||
-     (sep3 = strchr(sep2+1, '\t')) == NULL)
-  {
-    die("Bad VCF line\n%s\n", nline->buff);
-  }
+  vcf_columns(line->buff, fields);
 
-  *sep0 = *sep1 = '\0';
-  pos = atoi(sep0+1)-1;
+  fields[1][-1] = fields[2][-1] = '\0';
+  pos = atoi(fields[1])-1;
   chrlen = strlen(line->buff);
-  *sep0 = *sep1 = '\t';
-  reflen = sep3 - sep2 - 1;
+  fields[1][-1] = fields[2][-1] = '\t';
+  reflen = fields[4] - fields[3] - 1;
+
+  // Drop sample information
+  if((trm = strchr(fields[8], '\t')) != NULL) strbuf_shrink(line, trm-line->buff);
 
   // VCF fields: CHROM POS ID REF ALT ...
   while(strbuf_reset_gzreadline(nline, gzin) > 0)
   {
     print = 0;
     strbuf_chomp(nline);
+    vcf_columns(nline->buff, fields);
 
-    if((sep0 = strchr(nline->buff, '\t')) == NULL ||
-       (sep1 = strchr(sep0+1, '\t')) == NULL ||
-       (sep2 = strchr(sep1+1, '\t')) == NULL ||
-       (sep3 = strchr(sep2+1, '\t')) == NULL)
-    {
-      die("Bad VCF line\n%s\n", nline->buff);
-    }
-
-    *sep0 = *sep1 = '\0';
+    fields[1][-1] = fields[2][-1] = '\0';
     nchr = nline->buff;
-    npos = atoi(sep0+1)-1;
+    npos = atoi(fields[1])-1;
     nchrlen = strlen(nchr);
     hpos = kh_get(ghash, genome, nchr);
-    *sep0 = *sep1 = '\t';
-    nreflen = sep3 - sep2 - 1;
+    fields[1][-1] = fields[2][-1] = '\t';
+    nreflen = fields[4] - fields[3] - 1;
+    
+    // Drop sample information
+    if((trm = strchr(fields[8], '\t')) != NULL)
+      strbuf_shrink(nline, trm-nline->buff);
 
     if(hpos == kh_end(genome)) { warn("Cannot find chr: %s", nchr); print = 1; }
     else if(npos < 0) { warn("Bad line: %s", nline->buff); print = 1; }
@@ -249,7 +247,7 @@ int main(int argc, char **argv)
       if(same_chr && npos - (pos+reflen-1) <= overlap) {
         // Overlap - merge
         r = kh_value(genome, hpos);
-        reflen = merge_vcf_lines(line, nline, tmpbuf, tmpout, r);
+        reflen = merge_vcf_lines(line, fields, tmpbuf, tmpout, r);
         SWAP(line, tmpout, swap_buf);
       }
       else {
