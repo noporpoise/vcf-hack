@@ -5,7 +5,8 @@ CFLAGS=-Wall -Wextra -I libs/seq_file/ -I libs/string_buffer/ \
 LINKING=-lhts -lpthread
 SRCS=global.c libs/string_buffer/string_buffer.c libs/bit_array/libbitarr.a
 
-LIBS=libs/bit_array/libbitarr.a libs/string_buffer/libstrbuf.a \
+LIBS=libs/bit_array/libbitarr.a \
+     libs/string_buffer/string_buffer.c libs/string_buffer/libstrbuf.a \
      libs/htslib/htslib/libhts.a libs/seq_file/seq_file.h
 
 REQ=$(LIBS) bin Makefile
