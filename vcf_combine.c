@@ -268,6 +268,7 @@ int main(int argc, char **argv)
   // Print last line
   prntbf(line);
 
+  kh_destroy(ghash, genome);
   strbuf_dealloc(&sbuf0);
   strbuf_dealloc(&sbuf1);
   strbuf_dealloc(&sbuftmp0);

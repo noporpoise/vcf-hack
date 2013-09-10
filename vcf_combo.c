@@ -265,6 +265,7 @@ static inline void varset_dealloc(VarSet *vset) {
     strbuf_dealloc(&vset->lines[i]);
   }
   free(vset->vars);
+  free(vset->lines);
 }
 
 static inline void varset_capacity(VarSet *vset, size_t len) {
@@ -590,6 +591,7 @@ int main(int argc, char **argv)
 
   gzclose(gzin);
 
+  kh_destroy(ghash, genome);
   bit_array_dealloc(&bitset);
   varset_dealloc(&vset);
 

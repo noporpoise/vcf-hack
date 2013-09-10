@@ -116,6 +116,7 @@ int main(int argc, char **argv)
     }
   }
 
+  kh_destroy(ghash, genome);
   strbuf_dealloc(&line);
   gzclose(gzin);
 
