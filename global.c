@@ -52,6 +52,14 @@ char parse_entire_int(char *str, int *result)
   return 1;
 }
 
+size_t count_char(const char *str, char c)
+{
+  const char *tmp = str;
+  size_t count = 0;
+  while((tmp = strchr(tmp, c)) != NULL) { count++; tmp++; }
+  return count;
+}
+
 void vcf_columns(char *vcfline, char *fields[9])
 {
   int i;
