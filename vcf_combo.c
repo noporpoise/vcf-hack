@@ -65,7 +65,7 @@ static inline void var_alt_capacity(Var *var, size_t len) {
 static int varcmp(const void *a, const void *b) {
   const Var *v1 = (const Var*)a, *v2 = (const Var*)b;
   int cmp = (long)v1->pos - v2->pos;
-  return cmp == 0 ? (long)v1->reflen - v2->reflen : cmp;
+  return cmp == 0 ? (long)v1->reflen - (long)v2->reflen : cmp;
 }
 
 static void vars_sort(Var *vars, size_t nvars)
