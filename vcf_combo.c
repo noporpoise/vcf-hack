@@ -64,8 +64,8 @@ static inline void var_alt_capacity(Var *var, size_t len) {
 
 static int varcmp(const void *a, const void *b) {
   const Var *v1 = (const Var*)a, *v2 = (const Var*)b;
-  int cmp = v1->pos - v2->pos;
-  return cmp == 0 ? v1->reflen - v2->reflen : cmp;
+  int cmp = (long)v1->pos - v2->pos;
+  return cmp == 0 ? (long)v1->reflen - v2->reflen : cmp;
 }
 
 static void vars_sort(Var *vars, size_t nvars)
@@ -490,7 +490,7 @@ int main(int argc, char **argv)
   char *fields[9];
   char *nchr, *trm;
   int pos, npos, reflen, nreflen, same_chr;
-  size_t chrlen, nchrlen, print;
+  size_t chrlen, nchrlen;
 
   StrBuf tmpbuf, outbuf;
   strbuf_alloc(&tmpbuf, 1024);
@@ -545,7 +545,6 @@ int main(int argc, char **argv)
 
     if(strbuf_reset_gzreadline(nline, gzin) <= 0) break;
 
-    print = 0;
     strbuf_chomp(nline);
     vcf_columns(nline->buff, fields);
 

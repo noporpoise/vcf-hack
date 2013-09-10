@@ -71,7 +71,7 @@ static int merge_vcf_lines(StrBuf *line0, char *fields1[9],
                            StrBuf *tmpbuf, StrBuf *out, read_t *r)
 {
   char *fields0[9];
-  int i, pos0, pos1, reflen, reflen0, reflen1, altlen0, altlen1;
+  int i, pos0, pos1, reflen, reflen0, reflen1;
 
   strbuf_reset(out);
   vcf_columns(line0->buff, fields0);
@@ -89,8 +89,6 @@ static int merge_vcf_lines(StrBuf *line0, char *fields1[9],
 
   reflen0 = fields0[4]-fields0[3]-1;
   reflen1 = fields1[4]-fields1[3]-1;
-  altlen0 = fields0[5]-fields0[4]-1;
-  altlen1 = fields1[5]-fields1[4]-1;
   reflen = MAX2(pos1+reflen1-pos0, reflen0);
 
   if(pos1 + reflen1 > (signed)r->seq.end)
@@ -186,7 +184,7 @@ int main(int argc, char **argv)
   line = &sbuf0;
   nline = &sbuf1;
   tmpbuf = &sbuftmp0;
-  tmpout= &sbuftmp1;
+  tmpout = &sbuftmp1;
 
   #define prntbf(sbuf) ({ fputs((sbuf)->buff, stdout); fputc('\n', stdout); })
 
@@ -242,7 +240,7 @@ int main(int argc, char **argv)
     else if(npos < 0) { warn("Bad line: %s", nline->buff); print = 1; }
     else
     {
-      same_chr = (strncmp(nchr, line->buff, nchrlen) == 0);
+      same_chr = (chrlen == nchrlen && strncmp(nchr, line->buff, nchrlen) == 0);
       if(same_chr && pos > npos) die("VCF not sorted: %s", nline->buff);
       if(same_chr && npos - (pos+reflen-1) <= overlap) {
         // Overlap - merge
@@ -260,6 +258,7 @@ int main(int argc, char **argv)
       prntbf(line);
       // next line become current line
       SWAP(line,nline,swap_buf);
+      chrlen = nchrlen;
       pos = npos;
       reflen = nreflen;
     }
