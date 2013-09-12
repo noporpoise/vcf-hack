@@ -79,11 +79,10 @@ void load_reads(const char *path, read_t **reads, size_t *capcty, size_t *nchrom
   {
     if(*nchroms == *capcty && (*reads = realloc(*reads, *capcty *= 2)) == NULL)
       die("Out of memory");
-    if(seq_read_alloc(*reads+*nchroms) == NULL) die("Out of memory");
-    if(seq_read(sf,*reads+*nchroms) <= 0) {
-      seq_read_dealloc(*reads+*nchroms);
-      break;
-    }
+    read_t *r = *reads+*nchroms;
+    if(seq_read_alloc(r) == NULL) die("Out of memory");
+    if(seq_read(sf, r) <= 0) { seq_read_dealloc(r); break; }
+    seq_read_truncate_name(r);
     (*nchroms)++;
   }
   seq_close(sf);
