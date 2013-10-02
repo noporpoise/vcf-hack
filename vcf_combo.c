@@ -273,6 +273,7 @@ static inline void varset_capacity(VarSet *vset, size_t len) {
     size_t i, oldcap = vset->cap_vars;
     vset->cap_vars = ROUNDUP2POW(len);
     vset->vars = realloc(vset->vars, vset->cap_vars * sizeof(Var));
+    vset->lines = realloc(vset->lines, vset->cap_vars * sizeof(StrBuf));
     for(i = oldcap; i < vset->cap_vars; i++) {
       var_alloc(&vset->vars[i]);
       strbuf_alloc(&vset->lines[i], 1024);
