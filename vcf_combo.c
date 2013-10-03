@@ -380,6 +380,16 @@ static inline void varset_remove_duplicates(VarSet *vset)
   }
 }
 
+static inline void varset_dump(const VarSet *vset)
+{
+  size_t i, v; Var *var;
+  for(v = 0; v < vset->nvars; v++) {
+    var = &vset->vars[v];
+    for(i = 1; i < VFRMT; i++) var->fields[i][-1] = '\t';
+    prntbf(&var->line);
+  }
+}
+
 static inline void varset_print(VarSet *vset, khash_t(ghash) *genome,
                                 BIT_ARRAY *bitset, StrBuf *tmp, StrBuf *out)
 {
@@ -389,8 +399,7 @@ static inline void varset_print(VarSet *vset, khash_t(ghash) *genome,
   khiter_t hpos;
 
   if(vset->nvars == 1) {
-    for(i = 1; i < VFRMT; i++) var->fields[i][-1] = '\t';
-    prntbf(&var->line);
+    varset_dump(vset);
     return;
   }
 
@@ -398,8 +407,7 @@ static inline void varset_print(VarSet *vset, khash_t(ghash) *genome,
   if((hpos = kh_get(ghash, genome, var->fields[VCHR])) == kh_end(genome))
   {
     warn("Cannot find chr: %s", var->fields[VCHR]);
-    for(i = 1; i < VFRMT; i++) var->fields[i][-1] = '\t';
-    prntbf(&var->line);
+    varset_dump(vset);
     return;
   }
   else {
