@@ -12,7 +12,7 @@ LIBS=libs/bit_array/libbitarr.a \
 REQ=$(LIBS) bin Makefile
 
 ifdef DEBUG
-	OPT=-O0 -g -ggdb
+	OPT=-O0 -g -ggdb -DDEBUG=1
 else
 	OPT=-O2
 endif

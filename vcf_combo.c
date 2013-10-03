@@ -105,7 +105,7 @@ static int vars_overlap(Var *v0, Var *v1, size_t overlap)
   size_t len1 = v1->fields[VPOS] - v1->fields[VCHR] - 1;
   int same_chr = (len0 == len1 && !strncmp(v0->fields[VCHR], v1->fields[VCHR], len0));
   if(same_chr && v0->pos > v1->pos) die("VCF not sorted: %s", v1->line.buff);
-  return (same_chr && v1->pos - (v0->pos+v0->reflen-1) <= overlap);
+  return (same_chr && v0->pos + v0->reflen + overlap - 1 >= v1->pos);
 }
 
 #ifdef DEBUG
@@ -163,6 +163,13 @@ void vars_merge(Var *dst, const Var *src)
   }
 }
 
+static inline void copy_from_ref(StrBuf *sbuf, const char *ref, size_t len)
+{
+  strbuf_append_strn(sbuf, ref, len);
+  char *end = sbuf->buff + sbuf->len, *ptr = end - len;
+  for(; ptr < end; ptr++) *ptr = toupper(*ptr);
+}
+
 void construct_genotype(const Var **vars, size_t nvars,
                         const size_t *alleles, const char *ref, size_t reflen,
                         StrBuf *out)
@@ -173,12 +180,12 @@ void construct_genotype(const Var **vars, size_t nvars,
   for(i = 0; i < nvars; i++) {
     // if(vars[i]->pos > end) printf("{%.*s}", (int)(vars[i]->pos - end), ref + end);
     // printf("-%s-", vars[i]->alts[alleles[i]]);
-    if(vars[i]->pos > end) strbuf_append_strn(out, ref+end, vars[i]->pos-end);
+    if(vars[i]->pos > end) copy_from_ref(out, ref+end, vars[i]->pos-end);
     strbuf_append_str(out, vars[i]->alts[alleles[i]]);
     end = vars[i]->pos + vars[i]->reflen;
   }
   // printf("%.*s\n", (int)(reflen - end), ref + end);
-  strbuf_append_strn(out, ref + end, reflen - end);
+  copy_from_ref(out, ref + end, reflen - end);
 }
 
 // Returns number of genotypes added
@@ -467,7 +474,7 @@ static inline void varset_print(VarSet *vset, khash_t(ghash) *genome,
   strbuf_sprintf(out, "%s\t%i\t%s\t", var->fields[VCHR], pos, var->fields[VID]);
   // Copy "REF-"
   if(padding_base != -1) strbuf_append_char(out, padding_base);
-  strbuf_append_strn(out, ref+minstart, maxend-minstart);
+  copy_from_ref(out, ref+minstart, maxend-minstart);
   strbuf_append_char(out, '\t');
   // ALT
   reduce_alt_strings(alts, num_alts, padding_base, out);
