@@ -62,7 +62,7 @@ size_t count_char(const char *str, char c)
 
 void vcf_columns(char *vcfline, char *fields[9])
 {
-  int i;
+  size_t i;
   fields[0] = vcfline;
   for(i = 1; i < 9; i++) {
     fields[i] = strchr(fields[i-1]+1, '\t');
