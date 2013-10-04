@@ -379,9 +379,9 @@ static inline void varset_remove_duplicates(VarSet *vset)
   for(i = 1; i < vset->nvars; ) {
     if(varcmp(&vset->vars[i], &vset->vars[i-1]) == 0)
     {
+      vars_merge(&vset->vars[i-1], &vset->vars[i]);
       vset->nvars--;
       SWAP(vset->vars[i], vset->vars[vset->nvars], tmp);
-      vars_merge(&vset->vars[i], &vset->vars[vset->nvars]);
     }
     else i++;
   }
