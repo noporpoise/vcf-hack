@@ -460,7 +460,7 @@ static inline void varset_print(VarSet *vset, khash_t(ghash) *genome,
 
   int padding_base = -1;
   if(minstart+1 != maxend || !alts_are_snps(alts, num_alts)) {
-    padding_base = minstart == 0 ? 'N' : ref[minstart-1];
+    padding_base = minstart == 0 ? 'N' : toupper(ref[minstart-1]);
     #ifdef DEBUG
       printf("pad: %c\n", padding_base);
     #endif
