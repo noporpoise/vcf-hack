@@ -17,7 +17,7 @@ else
 	OPT=-O2
 endif
 
-all: bin/vcfref bin/vcfcombine bin/vcfcombo bin/mask2vcf
+all: bin/vcfref bin/vcfcombine bin/vcfcombo
 
 bin/vcfref: vcf_ref.c $(SRCS) | $(REQ)
 	$(CC) $(CFLAGS) $(OPT) -o bin/vcfref vcf_ref.c $(SRCS) $(LINKING) -lz
