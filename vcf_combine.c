@@ -74,10 +74,10 @@ static int merge_vcf_lines(StrBuf *line0, char *fields1[9],
   int i, pos0, pos1, reflen, reflen0, reflen1;
 
   strbuf_reset(out);
-  vcf_columns(line0->buff, fields0);
+  vcf_columns(line0->b, fields0);
 
   // Copy "CHROM-POS-ID-"
-  strbuf_append_strn(out, line0->buff, fields0[3] - fields0[0]);
+  strbuf_append_strn(out, line0->b, fields0[3] - fields0[0]);
 
   // Convert tabs to NUL
   for(i = 1; i < 9; i++) fields0[i][-1] = fields1[i][-1] = '\0';
@@ -105,7 +105,7 @@ static int merge_vcf_lines(StrBuf *line0, char *fields1[9],
   strbuf_reset(tmpbuf);
   merge_alts(fields0[4], 0, reflen0, ref, reflen, tmpbuf);
   merge_alts(fields1[4], pos1-pos0, reflen1, ref, reflen, tmpbuf);
-  reduce_alts(tmpbuf->buff+1, out);
+  reduce_alts(tmpbuf->b+1, out);
   strbuf_append_char(out, '\t');
 
   // Revert
@@ -119,6 +119,10 @@ static int merge_vcf_lines(StrBuf *line0, char *fields1[9],
 
 int main(int argc, char **argv)
 {
+  // compiler complains about unused function without these linese
+  (void)kh_clear_ghash;
+  (void)kh_del_ghash;
+
   char *inputpath, **refpaths;
   gzFile gzin;
   size_t i, nchroms = 0, capacity = 1024, num_refs;
@@ -186,46 +190,46 @@ int main(int argc, char **argv)
   tmpbuf = &sbuftmp0;
   tmpout = &sbuftmp1;
 
-  #define prntbf(sbuf) ({ fputs((sbuf)->buff, stdout); fputc('\n', stdout); })
+  #define prntbf(sbuf) ({ fputs((sbuf)->b, stdout); fputc('\n', stdout); })
 
   while(strbuf_reset_gzreadline(line, gzin) > 0) {
     strbuf_chomp(line);
-    if(strncmp(line->buff, "##", 2) == 0) prntbf(line);
-    else if(line->len > 0) break;
+    if(strncmp(line->b, "##", 2) == 0) prntbf(line);
+    else if(line->end > 0) break;
   }
 
-  if(strncmp(line->buff,"#CHROM",6) != 0)
-    die("Expected header: '%s'", line->buff);
+  if(strncmp(line->b,"#CHROM",6) != 0)
+    die("Expected header: '%s'", line->b);
 
   // Drop sample information from #CHROM POS ... header line
-  vcf_columns(line->buff, fields);
-  if((trm = strchr(fields[8], '\t')) != NULL) strbuf_shrink(line, trm-line->buff);
+  vcf_columns(line->b, fields);
+  if((trm = strchr(fields[8], '\t')) != NULL) strbuf_shrink(line, trm-line->b);
   prntbf(line);
 
   strbuf_reset_gzreadline(line, gzin);
-  if(line->len == 0) die("Empty VCF");
+  if(line->end == 0) die("Empty VCF");
 
   // Parse first VCF entry
-  vcf_columns(line->buff, fields);
+  vcf_columns(line->b, fields);
 
   fields[1][-1] = fields[2][-1] = '\0';
   pos = atoi(fields[1])-1;
-  chrlen = strlen(line->buff);
+  chrlen = strlen(line->b);
   fields[1][-1] = fields[2][-1] = '\t';
   reflen = fields[4] - fields[3] - 1;
 
   // Drop sample information
-  if((trm = strchr(fields[8], '\t')) != NULL) strbuf_shrink(line, trm-line->buff);
+  if((trm = strchr(fields[8], '\t')) != NULL) strbuf_shrink(line, trm-line->b);
 
   // VCF fields: CHROM POS ID REF ALT ...
   while(strbuf_reset_gzreadline(nline, gzin) > 0)
   {
     print = 0;
     strbuf_chomp(nline);
-    vcf_columns(nline->buff, fields);
+    vcf_columns(nline->b, fields);
 
     fields[1][-1] = fields[2][-1] = '\0';
-    nchr = nline->buff;
+    nchr = nline->b;
     npos = atoi(fields[1])-1;
     nchrlen = strlen(nchr);
     hpos = kh_get(ghash, genome, nchr);
@@ -234,14 +238,14 @@ int main(int argc, char **argv)
     
     // Drop sample information
     if((trm = strchr(fields[8], '\t')) != NULL)
-      strbuf_shrink(nline, trm-nline->buff);
+      strbuf_shrink(nline, trm-nline->b);
 
     if(hpos == kh_end(genome)) { warn("Cannot find chr: %s", nchr); print = 1; }
-    else if(npos < 0) { warn("Bad line: %s", nline->buff); print = 1; }
+    else if(npos < 0) { warn("Bad line: %s", nline->b); print = 1; }
     else
     {
-      same_chr = (chrlen == nchrlen && strncmp(nchr, line->buff, nchrlen) == 0);
-      if(same_chr && pos > npos) die("VCF not sorted: %s", nline->buff);
+      same_chr = (chrlen == nchrlen && strncmp(nchr, line->b, nchrlen) == 0);
+      if(same_chr && pos > npos) die("VCF not sorted: %s", nline->b);
       if(same_chr && npos - (pos+reflen-1) <= overlap) {
         // Overlap - merge
         r = kh_value(genome, hpos);

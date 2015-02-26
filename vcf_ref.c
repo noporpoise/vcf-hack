@@ -19,6 +19,10 @@ KHASH_MAP_INIT_STR(ghash, read_t*)
 
 int main(int argc, char **argv)
 {
+  // compiler complains about unused function without these linese
+  (void)kh_clear_ghash;
+  (void)kh_del_ghash;
+
   if(argc < 2) print_usage(usage, NULL);
 
   char swap_alleles = 0;
@@ -75,13 +79,13 @@ int main(int argc, char **argv)
 
   while(strbuf_reset_gzreadline(&line, gzin) > 0)
   {
-    if(line.buff[0] == '#') fputs(line.buff, stdout);
+    if(line.b[0] == '#') fputs(line.b, stdout);
     else
     {
       strbuf_chomp(&line);
-      vcf_columns(line.buff, fields);
+      vcf_columns(line.b, fields);
       fields[1][-1] = fields[2][-1] = '\0';
-      chr = line.buff;
+      chr = line.b;
       pos = atoi(fields[1])-1;
       k = kh_get(ghash, genome, chr);
       r = kh_value(genome, k);
@@ -89,13 +93,13 @@ int main(int argc, char **argv)
       reflen = fields[4] - fields[3] - 1;
       altlen = fields[5] - fields[4] - 1;
       if(k == kh_end(genome)) warn("Cannot find chrom: %s", chr);
-      else if(pos < 0) warn("Bad line: %s\n", line.buff);
+      else if(pos < 0) warn("Bad line: %s\n", line.b);
       else if((reflen == 1 && altlen == 1) || fields[3][0] == fields[4][0])
       {
         if((unsigned)pos + reflen <= r->seq.end &&
            strncasecmp(r->seq.b+pos,fields[3],reflen) == 0)
         {
-          fputs(line.buff, stdout);
+          fputs(line.b, stdout);
           fputc('\n', stdout);
         }
         else if(swap_alleles && (unsigned)pos + altlen <= r->seq.end &&
@@ -107,7 +111,7 @@ int main(int argc, char **argv)
           memmove(ref+altlen+1, ref, reflen);
           memcpy(ref, tmp, altlen);
           ref[altlen] = '\t';
-          fputs(line.buff, stdout);
+          fputs(line.b, stdout);
           fputc('\n', stdout);
         }
         // else printf("FAIL0\n");

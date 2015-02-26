@@ -17,7 +17,7 @@ static const char usage[] =
 
 KHASH_MAP_INIT_STR(ghash, read_t*)
 
-#define prntbf(sbuf) ({ fputs((sbuf)->buff, stdout); fputc('\n', stdout); })
+#define prntbf(sbuf) ({ fputs((sbuf)->b, stdout); fputc('\n', stdout); })
 
 typedef struct {
   StrBuf line;
@@ -32,6 +32,7 @@ typedef struct {
 
 #define var_is_ins(var) ((var)->ref[0] == '\0')
 
+/*
 static inline char var_is_del(Var *var) {
   size_t i;
   for(i = 0; i < var->num_alts; i++)
@@ -41,6 +42,7 @@ static inline char var_is_del(Var *var) {
 }
 
 #define var_is_indel(var) (var_is_ins(var) || var_is_del(var))
+*/
 
 // To be a SNP all alleles must be exactly one base long
 static inline int alts_are_snps(char **alts, size_t num_alts)
@@ -74,8 +76,8 @@ static void var_construct(Var *var)
 {
   size_t i; char *trm, **fields = var->fields;
   strbuf_chomp(&var->line);
-  // printf("READ: %s\n", var->line.buff);
-  vcf_columns(var->line.buff, fields);
+  // printf("READ: %s\n", var->line.b);
+  vcf_columns(var->line.b, fields);
   for(i = 1; i < VFRMT; i++) fields[i][-1] = '\0';
 
   var->num_alts = 1 + count_char(fields[VALT], ',');
@@ -90,12 +92,12 @@ static void var_construct(Var *var)
 
   if(pos == 0) {
     for(i = 1; i < VFRMT; i++) fields[i][-1] = '\t';
-    die("Bad line: %s\n", var->line.buff);
+    die("Bad line: %s\n", var->line.b);
   }
 
   // Drop sample information
   if((trm = strchr(fields[8], '\t')) != NULL)
-    strbuf_shrink(&var->line, trm - var->line.buff);
+    strbuf_shrink(&var->line, trm - var->line.b);
 }
 
 // returns 1 or 0
@@ -104,7 +106,7 @@ static int vars_overlap(Var *v0, Var *v1, size_t overlap)
   size_t len0 = v0->fields[VPOS] - v0->fields[VCHR] - 1;
   size_t len1 = v1->fields[VPOS] - v1->fields[VCHR] - 1;
   int same_chr = (len0 == len1 && !strncmp(v0->fields[VCHR], v1->fields[VCHR], len0));
-  if(same_chr && v0->pos > v1->pos) die("VCF not sorted: %s", v1->line.buff);
+  if(same_chr && v0->pos > v1->pos) die("VCF not sorted: %s", v1->line.b);
   return (same_chr && v0->pos + v0->reflen + overlap - 1 >= v1->pos);
 }
 
@@ -166,7 +168,7 @@ void vars_merge(Var *dst, const Var *src)
 static inline void copy_from_ref(StrBuf *sbuf, const char *ref, size_t len)
 {
   strbuf_append_strn(sbuf, ref, len);
-  char *end = sbuf->buff + sbuf->len, *ptr = end - len;
+  char *end = sbuf->b + sbuf->end, *ptr = end - len;
   for(; ptr < end; ptr++) *ptr = toupper(*ptr);
 }
 
@@ -260,7 +262,7 @@ static size_t generate_var_combinations(const Var *vars, size_t nvars,
       bit_array_add_word(bitset, ret, 1); // add 1<<ret
       i += 1UL<<ret;
     }
-    else { bit_array_add(bitset, 1); i++; }
+    else { bit_array_add_uint64(bitset, 1); i++; }
   }
 
   return num_var_gt;
@@ -449,10 +451,10 @@ static inline void varset_print(VarSet *vset, khash_t(ghash) *genome,
                                        ref+minstart, maxend-minstart,
                                        bitset, tmp);
 
-  // printf("BUF: '%s'\n", tmp->buff);
+  // printf("BUF: '%s'\n", tmp->b);
 
   char *alts[num_alts];
-  alts[0] = tmp->buff+1;
+  alts[0] = tmp->b+1;
   for(i = 1; i < num_alts; i++) {
     alts[i] = strchr(alts[i-1], ',')+1;
     alts[i][-1] = '\0';
@@ -546,7 +548,7 @@ void test()
   vars_sort(vars, 4);
   generate_var_combinations(vars, 4, "ACCA", 4, &bitset, &tmpbuf);
 
-  printf(" ALTS: '%s'\n", tmpbuf.buff);
+  printf(" ALTS: '%s'\n", tmpbuf.b);
 
   bit_array_dealloc(&bitset);
   strbuf_dealloc(&tmpbuf);
@@ -555,6 +557,10 @@ void test()
 int main(int argc, char **argv)
 {
   // test();
+
+  // compiler complains about unused function without these linese
+  (void)kh_clear_ghash;
+  (void)kh_del_ghash;
 
   char *inputpath, **refpaths;
   gzFile gzin;
@@ -619,17 +625,17 @@ int main(int argc, char **argv)
 
   while(strbuf_reset_gzreadline(&tmpbuf, gzin) > 0) {
     strbuf_chomp(&tmpbuf);
-    if(strncmp(tmpbuf.buff, "##", 2) == 0) prntbf(&tmpbuf);
-    else if(tmpbuf.len > 0) break;
+    if(strncmp(tmpbuf.b, "##", 2) == 0) prntbf(&tmpbuf);
+    else if(tmpbuf.end > 0) break;
   }
 
-  if(strncmp(tmpbuf.buff,"#CHROM",6) != 0)
-    die("Expected header: '%s'", tmpbuf.buff);
+  if(strncmp(tmpbuf.b,"#CHROM",6) != 0)
+    die("Expected header: '%s'", tmpbuf.b);
 
   // Drop sample information from #CHROM POS ... header tmpbuf
   char *fields[9], *trm;
-  vcf_columns(tmpbuf.buff, fields);
-  if((trm = strchr(fields[8], '\t')) != NULL) strbuf_shrink(&tmpbuf, trm-tmpbuf.buff);
+  vcf_columns(tmpbuf.b, fields);
+  if((trm = strchr(fields[8], '\t')) != NULL) strbuf_shrink(&tmpbuf, trm-tmpbuf.b);
   prntbf(&tmpbuf);
 
   // Parse first VCF entry
